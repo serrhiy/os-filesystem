@@ -11,8 +11,9 @@ int main(const int argc, const char* argv[]) {
 
   try {
     FileSystem filesystem{std::make_unique<Storage>()};
+    filesystem.ls(std::cout);
     filesystem.create("file.txt");
-    filesystem.create("file.txt");
+    filesystem.ls(std::cout);
   } catch (const std::exception& exception) {
     std::print(std::cerr, "Error occured: {}\n", exception.what());
   }

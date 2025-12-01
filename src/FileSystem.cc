@@ -2,10 +2,14 @@
 
 #include <format>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 
 #include "FileInfo.hh"
+
+FileSystem::FileSystem(std::unique_ptr<IStorage> storage)
+    : storage{std::move(storage)}, inode_counter{0} {}
 
 size_t FileSystem::create(const std::string filename) {
   if (directoryEntries.contains(filename)) {
@@ -18,5 +22,10 @@ size_t FileSystem::create(const std::string filename) {
   return inode_counter++;
 }
 
-FileSystem::FileSystem(std::unique_ptr<IStorage> storage)
-    : storage{std::move(storage)}, inode_counter{0} {}
+void FileSystem::ls(std::ostream &outputStream) const {
+  outputStream << "total " << directoryEntries.size() << '\n';
+  for (const auto &[filename, inodeInfo] : directoryEntries) {
+    outputStream << filename << '\t' << inodeInfo->nlink << '\t';
+    outputStream << inodeInfo->size << '\t' << inodeInfo->inode << '\n';
+  }
+}

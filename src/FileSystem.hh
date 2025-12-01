@@ -17,4 +17,5 @@ class FileSystem {
   FileSystem(std::unique_ptr<IStorage> storage);
 
   size_t create(const std::string filename);
+  void ls(std::ostream &outputStream) const;
 };
