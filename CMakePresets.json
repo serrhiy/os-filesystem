@@ -3,7 +3,7 @@
   "configurePresets": [
     {
       "name": "general",
-      "generator": "Ninja",
+      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "bin",
