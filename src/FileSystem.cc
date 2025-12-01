@@ -47,3 +47,19 @@ void FileSystem::stat(const std::string& filename,
   outputStream << "Inode: " << inodeInfo->inode << '\t';
   outputStream << "Links: " << inodeInfo->nlink << '\n';
 }
+
+size_t FileSystem::link(const std::string file1, const std::string file2) {
+  if (!directoryEntries.contains(file1)) {
+    static constexpr const char* message = "Failed. File {} does not exist.";
+    throw std::runtime_error{std::format(message, file1)};
+  }
+  if (directoryEntries.contains(file2)) {
+    static constexpr const char* message = "Failed. File {} already exists.";
+    throw std::runtime_error{std::format(message, file2)};
+  }
+
+  auto fileInfo = directoryEntries.at(file1);
+  fileInfo->nlink++;
+  directoryEntries[file2] = fileInfo;
+  return fileInfo->inode;
+}

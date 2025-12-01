@@ -19,4 +19,5 @@ class FileSystem {
   size_t create(const std::string filename);
   void ls(std::ostream &outputStream) const;
   void stat(const std::string& filename, std::ostream& outputStream) const;
+  size_t link(const std::string file1, const std::string file2);
 };
