@@ -88,7 +88,24 @@ void FileSystem::unlink(const std::string& filename) {
 size_t FileSystem::open(const std::string filename) {
   throwIfNotExists(filename);
 
-  openedFiles[fdCounter] = OpenedFileInfo{0, filename};
+  openedFiles[fdCounter] =
+      OpenedFileInfo{0, filename, directoryEntries.at(filename)};
   filenameToFd[filename] = fdCounter;
   return fdCounter++;
+}
+
+void FileSystem::close(size_t fd) {
+  if (!openedFiles.contains(fd)) {
+    throw std::runtime_error{std::format("Invalid fd: {}", fd)};
+  }
+  const OpenedFileInfo &openedFileinfo = openedFiles.at(fd);
+
+  // If file was deleted while writing/reading
+  if (!directoryEntries.contains(openedFileinfo.filename)) {
+    const auto indices = openedFileinfo.inodeInfo->blocks | std::views::values;
+    storage->release(std::vector(indices.begin(), indices.end()));
+  }
+
+  openedFiles.erase(fd);
+  filenameToFd.erase(openedFileinfo.filename);
 }

@@ -29,4 +29,5 @@ class FileSystem {
   void unlink(const std::string& filename);
 
   size_t open(const std::string filename);
+  void close(size_t fd);
 };

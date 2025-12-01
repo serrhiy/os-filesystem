@@ -48,4 +48,5 @@ struct INodeInfo {
 struct OpenedFileInfo {
   size_t position;
   std::string filename;
+  std::shared_ptr<INodeInfo> inodeInfo;
 };

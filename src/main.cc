@@ -12,11 +12,9 @@ int main(const int argc, const char* argv[]) {
   try {
     FileSystem filesystem{std::make_unique<Storage>()};
     filesystem.create("file.txt");
-    filesystem.link("file.txt", "file-link.txt");
-    filesystem.ls(std::cout);
-    filesystem.unlink("file-link.txt");
+    const size_t fd = filesystem.open("file.txt");
     filesystem.unlink("file.txt");
-    filesystem.ls(std::cout);
+    filesystem.close(fd);
   } catch (const std::exception& exception) {
     std::print(std::cerr, "Error occured: {}\n", exception.what());
   }
