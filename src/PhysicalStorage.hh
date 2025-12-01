@@ -5,14 +5,13 @@
 #include <span>
 #include <utility>
 
-template <unsigned blocksNumber, unsigned blockSize>
-class PhysicalStorage final {
-  using byte_t = unsigned char;
+#include "IStorage.hh"
 
+template <unsigned blocksNumber, unsigned blockSize>
+class PhysicalStorage final : public IStorage {
   std::array<std::array<byte_t, blockSize>, blocksNumber> blocks;
   std::array<bool, blocksNumber> isBusy;
   size_t freeBlocksNumber;
-
   size_t currentIndex;
 
   void advanceIndex() {
@@ -25,9 +24,9 @@ class PhysicalStorage final {
  public:
   PhysicalStorage() : currentIndex{0}, freeBlocksNumber{blocksNumber} {}
 
-  bool hasFreeBlock() const { return freeBlocksNumber != 0; }
+  bool hasFreeBlock() const override { return freeBlocksNumber != 0; }
 
-  std::pair<std::span<byte_t>, size_t> getBlock() {
+  std::pair<std::span<byte_t>, size_t> getBlock() override {
     if (!hasFreeBlock()) return std::make_pair(std::span<byte_t>{}, 0);
     advanceIndex();
     freeBlocksNumber--;
@@ -36,7 +35,7 @@ class PhysicalStorage final {
                           currentIndex);
   }
 
-  void release(size_t index) {
+  void release(size_t index) override {
     if (isBusy[index]) return;
     freeBlocksNumber++;
     isBusy[index] = false;
