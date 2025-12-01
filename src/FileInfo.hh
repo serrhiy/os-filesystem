@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ranges>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -42,4 +43,9 @@ struct INodeInfo {
   size_t size;
   size_t blocksNumber;
   std::vector<IStorage::block_t> blocks;
+};
+
+struct OpenedFileInfo {
+  size_t position;
+  std::string filename;
 };

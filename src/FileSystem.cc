@@ -1,12 +1,14 @@
 #include "FileSystem.hh"
 
 #include <format>
+#include <iostream>
 #include <memory>
 #include <ostream>
 #include <ranges>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "FileInfo.hh"
 
@@ -25,15 +27,14 @@ void FileSystem::throwIfNotExists(const std::string& filename) const {
 }
 
 FileSystem::FileSystem(std::unique_ptr<IStorage> storage)
-    : storage{std::move(storage)}, inode_counter{0} {}
+    : storage{std::move(storage)}, inodeCounter{0}, fdCounter{0} {}
 
 size_t FileSystem::create(const std::string& filename) {
   throwIfExists(filename);
 
-  auto fileInfo = std::make_shared<INodeInfo>(
-      INodeInfo{inode_counter, FileType::REGULAR, 1, 0, 0});
-  directoryEntries[filename] = fileInfo;
-  return inode_counter++;
+  auto fileInfo = std::make_shared<INodeInfo>(INodeInfo{inodeCounter, FileType::REGULAR, 1, 0, 0});
+  directoryEntries[filename] = std::move(fileInfo);
+  return inodeCounter++;
 }
 
 void FileSystem::ls(std::ostream& outputStream) const {
@@ -75,9 +76,19 @@ void FileSystem::unlink(const std::string& filename) {
 
   auto fileInfo = directoryEntries.at(filename);
   fileInfo->nlink--;
-  if (fileInfo->nlink == 0) {
+  // If file is not opened
+  if (fileInfo->nlink == 0 && !filenameToFd.contains(filename)) {
     const auto indices = fileInfo->blocks | std::views::values;
     storage->release(std::vector(indices.begin(), indices.end()));
   }
+
   directoryEntries.erase(filename);
+}
+
+size_t FileSystem::open(const std::string filename) {
+  throwIfNotExists(filename);
+
+  openedFiles[fdCounter] = OpenedFileInfo{0, filename};
+  filenameToFd[filename] = fdCounter;
+  return fdCounter++;
 }
