@@ -22,10 +22,28 @@ size_t FileSystem::create(const std::string filename) {
   return inode_counter++;
 }
 
-void FileSystem::ls(std::ostream &outputStream) const {
+void FileSystem::ls(std::ostream& outputStream) const {
   outputStream << "total " << directoryEntries.size() << '\n';
   for (const auto &[filename, inodeInfo] : directoryEntries) {
-    outputStream << filename << '\t' << inodeInfo->nlink << '\t';
-    outputStream << inodeInfo->size << '\t' << inodeInfo->inode << '\n';
+    const char filetype = fileTypeToChar.at(inodeInfo->mode);
+    outputStream << filename << '\t' << filetype << '\t';
+    outputStream << inodeInfo->nlink << '\t' << inodeInfo->size << '\t';
+    outputStream << inodeInfo->inode << '\n';
   }
+}
+
+void FileSystem::stat(const std::string& filename,
+                      std::ostream& outputStream) const {
+  if (!directoryEntries.contains(filename)) {
+    static constexpr const char* message = "Failed. File {} does not exist.";
+    throw std::runtime_error{std::format(message, filename)};
+  }
+  auto inodeInfo = directoryEntries.at(filename);
+  outputStream << "File: " << filename << '\n';
+  outputStream << "Size: " << inodeInfo->size << '\t';
+  outputStream << "Blocks: " << inodeInfo->blocks << '\t';
+  outputStream << fileTypeToDescription.at(inodeInfo->mode) << '\n';
+
+  outputStream << "Inode: " << inodeInfo->inode << '\t';
+  outputStream << "Links: " << inodeInfo->nlink << '\n';
 }
