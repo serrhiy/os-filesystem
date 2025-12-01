@@ -14,6 +14,9 @@ int main(const int argc, const char* argv[]) {
     filesystem.create("file.txt");
     filesystem.link("file.txt", "file-link.txt");
     filesystem.ls(std::cout);
+    filesystem.unlink("file-link.txt");
+    filesystem.unlink("file.txt");
+    filesystem.ls(std::cout);
   } catch (const std::exception& exception) {
     std::print(std::cerr, "Error occured: {}\n", exception.what());
   }

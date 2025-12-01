@@ -23,5 +23,5 @@ class FileSystem {
   void ls(std::ostream& outputStream) const;
   void stat(const std::string& filename, std::ostream& outputStream) const;
   size_t link(const std::string& file1, const std::string& file2);
-  size_t unlink(const std::string& filename);
+  void unlink(const std::string& filename);
 };

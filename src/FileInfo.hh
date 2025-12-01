@@ -1,7 +1,12 @@
 #pragma once
 
+#include <span>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "IStorage.hh"
 
 enum class FileType {
   REGULAR,
@@ -35,6 +40,6 @@ struct INodeInfo {
   FileType mode;
   size_t nlink;
   size_t size;
-  size_t blksize;
-  size_t blocks;
+  size_t blocksNumber;
+  std::vector<IStorage::block_t> blocks;
 };

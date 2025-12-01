@@ -4,6 +4,7 @@
 #include <array>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include "IStorage.hh"
 
@@ -24,20 +25,28 @@ class PhysicalStorage final : public IStorage {
  public:
   PhysicalStorage() : currentIndex{0}, freeBlocksNumber{blocksNumber} {}
 
-  bool hasFreeBlock() const override { return freeBlocksNumber != 0; }
-
-  std::pair<std::span<byte_t>, size_t> getBlock() override {
-    if (!hasFreeBlock()) return std::make_pair(std::span<byte_t>{}, 0);
-    advanceIndex();
-    freeBlocksNumber--;
-    isBusy[currentIndex] = true;
-    return std::make_pair(std::span<byte_t>{blocks[currentIndex]},
-                          currentIndex);
+  bool hasFreeBlocks(size_t nblocks) const override {
+    return freeBlocksNumber >= nblocks;
   }
 
-  void release(size_t index) override {
-    if (isBusy[index]) return;
-    freeBlocksNumber++;
-    isBusy[index] = false;
+  std::vector<block_t> getBlocks(size_t nblocks) override {
+    if (!hasFreeBlocks(nblocks)) return std::vector<block_t>{};
+    std::vector<block_t> result{nblocks};
+    for (size_t index = 0; index < nblocks; index++) {
+      advanceIndex();
+      freeBlocksNumber--;
+      isBusy[currentIndex] = true;
+      result[index] =
+          std::make_pair(std::span<byte_t>{blocks[currentIndex]}, currentIndex);
+    }
+    return result;
+  }
+
+  void release(std::vector<size_t> indices) override {
+    for (size_t index : indices) {
+      if (isBusy[index]) continue;
+      freeBlocksNumber++;
+      isBusy[index] = false;
+    }
   }
 };
