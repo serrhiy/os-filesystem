@@ -98,7 +98,7 @@ void FileSystem::close(size_t fd) {
   if (!openedFiles.contains(fd)) {
     throw std::runtime_error{std::format("Invalid fd: {}", fd)};
   }
-  const OpenedFileInfo &openedFileinfo = openedFiles.at(fd);
+  const OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
 
   // If file was deleted while writing/reading
   if (!directoryEntries.contains(openedFileinfo.filename)) {
@@ -108,4 +108,12 @@ void FileSystem::close(size_t fd) {
 
   openedFiles.erase(fd);
   filenameToFd.erase(openedFileinfo.filename);
+}
+
+void FileSystem::seek(size_t fd, size_t offset) {
+  if (!openedFiles.contains(fd)) {
+    throw std::runtime_error{std::format("Invalid fd: {}", fd)};
+  }
+  OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
+  openedFileinfo.position = offset;
 }

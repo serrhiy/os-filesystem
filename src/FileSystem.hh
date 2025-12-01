@@ -30,4 +30,5 @@ class FileSystem {
 
   size_t open(const std::string filename);
   void close(size_t fd);
+  void seek(size_t fd, size_t offset);
 };
