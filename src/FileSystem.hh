@@ -12,12 +12,16 @@ class FileSystem {
   std::unordered_map<std::string, std::shared_ptr<INodeInfo>> directoryEntries;
   size_t inode_counter;
 
+  void throwIfExists(const std::string& filename) const;
+  void throwIfNotExists(const std::string& filename) const;
+
  public:
   FileSystem() = delete;
   FileSystem(std::unique_ptr<IStorage> storage);
 
-  size_t create(const std::string filename);
-  void ls(std::ostream &outputStream) const;
+  size_t create(const std::string& filename);
+  void ls(std::ostream& outputStream) const;
   void stat(const std::string& filename, std::ostream& outputStream) const;
-  size_t link(const std::string file1, const std::string file2);
+  size_t link(const std::string& file1, const std::string& file2);
+  size_t unlink(const std::string& filename);
 };

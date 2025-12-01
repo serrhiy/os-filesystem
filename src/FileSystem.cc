@@ -8,14 +8,26 @@
 
 #include "FileInfo.hh"
 
-FileSystem::FileSystem(std::unique_ptr<IStorage> storage)
-    : storage{std::move(storage)}, inode_counter{0} {}
-
-size_t FileSystem::create(const std::string filename) {
+void FileSystem::throwIfExists(const std::string& filename) const {
   if (directoryEntries.contains(filename)) {
     static constexpr const char* message = "Failed. File {} already exists.";
     throw std::runtime_error{std::format(message, filename)};
   }
+}
+
+void FileSystem::throwIfNotExists(const std::string& filename) const {
+  if (!directoryEntries.contains(filename)) {
+    static constexpr const char* message = "Failed. File {} does not exist.";
+    throw std::runtime_error{std::format(message, filename)};
+  }
+}
+
+FileSystem::FileSystem(std::unique_ptr<IStorage> storage)
+    : storage{std::move(storage)}, inode_counter{0} {}
+
+size_t FileSystem::create(const std::string& filename) {
+  throwIfExists(filename);
+
   auto fileInfo = std::make_shared<INodeInfo>(
       INodeInfo{inode_counter, FileType::REGULAR, 1, 0, 0, 0});
   directoryEntries[filename] = fileInfo;
@@ -34,10 +46,8 @@ void FileSystem::ls(std::ostream& outputStream) const {
 
 void FileSystem::stat(const std::string& filename,
                       std::ostream& outputStream) const {
-  if (!directoryEntries.contains(filename)) {
-    static constexpr const char* message = "Failed. File {} does not exist.";
-    throw std::runtime_error{std::format(message, filename)};
-  }
+  throwIfNotExists(filename);
+
   auto inodeInfo = directoryEntries.at(filename);
   outputStream << "File: " << filename << '\n';
   outputStream << "Size: " << inodeInfo->size << '\t';
@@ -48,15 +58,9 @@ void FileSystem::stat(const std::string& filename,
   outputStream << "Links: " << inodeInfo->nlink << '\n';
 }
 
-size_t FileSystem::link(const std::string file1, const std::string file2) {
-  if (!directoryEntries.contains(file1)) {
-    static constexpr const char* message = "Failed. File {} does not exist.";
-    throw std::runtime_error{std::format(message, file1)};
-  }
-  if (directoryEntries.contains(file2)) {
-    static constexpr const char* message = "Failed. File {} already exists.";
-    throw std::runtime_error{std::format(message, file2)};
-  }
+size_t FileSystem::link(const std::string& file1, const std::string& file2) {
+  throwIfNotExists(file1);
+  throwIfExists(file2);
 
   auto fileInfo = directoryEntries.at(file1);
   fileInfo->nlink++;
