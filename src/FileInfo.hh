@@ -41,7 +41,6 @@ struct INodeInfo {
   FileType mode;
   size_t nlink;
   size_t size;
-  size_t blocksNumber;
   std::vector<IStorage::block_t> blocks;
 };
 

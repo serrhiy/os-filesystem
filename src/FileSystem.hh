@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include "FileInfo.hh"
@@ -17,6 +18,7 @@ class FileSystem {
 
   void throwIfExists(const std::string& filename) const;
   void throwIfNotExists(const std::string& filename) const;
+  void throwIfNotOpened(size_t fd);
 
  public:
   FileSystem() = delete;
@@ -31,4 +33,6 @@ class FileSystem {
   size_t open(const std::string filename);
   void close(size_t fd);
   void seek(size_t fd, size_t offset);
+  void write(size_t fd, std::string_view content);
+  std::string read(size_t fd, size_t bytes);
 };

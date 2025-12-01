@@ -6,7 +6,7 @@
 
 class IStorage {
  public:
-  using byte_t = unsigned char;
+  using byte_t = char;
   using block_t = std::pair<std::span<byte_t>, size_t>;
 
   virtual bool hasFreeBlocks(size_t blocks_number = 1) const = 0;

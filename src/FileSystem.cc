@@ -1,16 +1,17 @@
 #include "FileSystem.hh"
 
+#include <algorithm>
+#include <cmath>
 #include <format>
-#include <iostream>
 #include <memory>
 #include <ostream>
 #include <ranges>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <algorithm>
 
 #include "FileInfo.hh"
+#include "constants.hh"
 
 void FileSystem::throwIfExists(const std::string& filename) const {
   if (directoryEntries.contains(filename)) {
@@ -26,13 +27,20 @@ void FileSystem::throwIfNotExists(const std::string& filename) const {
   }
 }
 
+void FileSystem::throwIfNotOpened(size_t fd) {
+  if (!openedFiles.contains(fd)) {
+    throw std::runtime_error{std::format("Invalid fd: {}", fd)};
+  }
+}
+
 FileSystem::FileSystem(std::unique_ptr<IStorage> storage)
     : storage{std::move(storage)}, inodeCounter{0}, fdCounter{0} {}
 
 size_t FileSystem::create(const std::string& filename) {
   throwIfExists(filename);
 
-  auto fileInfo = std::make_shared<INodeInfo>(INodeInfo{inodeCounter, FileType::REGULAR, 1, 0, 0});
+  auto fileInfo = std::make_shared<INodeInfo>(
+      INodeInfo{inodeCounter, FileType::REGULAR, 1, 0});
   directoryEntries[filename] = std::move(fileInfo);
   return inodeCounter++;
 }
@@ -54,7 +62,7 @@ void FileSystem::stat(const std::string& filename,
   auto inodeInfo = directoryEntries.at(filename);
   outputStream << "File: " << filename << '\n';
   outputStream << "Size: " << inodeInfo->size << '\t';
-  outputStream << "Blocks: " << inodeInfo->blocksNumber << '\t';
+  outputStream << "Blocks: " << inodeInfo->blocks.size() << '\t';
   outputStream << fileTypeToDescription.at(inodeInfo->mode) << '\n';
 
   outputStream << "Inode: " << inodeInfo->inode << '\t';
@@ -95,11 +103,9 @@ size_t FileSystem::open(const std::string filename) {
 }
 
 void FileSystem::close(size_t fd) {
-  if (!openedFiles.contains(fd)) {
-    throw std::runtime_error{std::format("Invalid fd: {}", fd)};
-  }
-  const OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
+  throwIfNotOpened(fd);
 
+  const OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
   // If file was deleted while writing/reading
   if (!directoryEntries.contains(openedFileinfo.filename)) {
     const auto indices = openedFileinfo.inodeInfo->blocks | std::views::values;
@@ -111,9 +117,45 @@ void FileSystem::close(size_t fd) {
 }
 
 void FileSystem::seek(size_t fd, size_t offset) {
-  if (!openedFiles.contains(fd)) {
-    throw std::runtime_error{std::format("Invalid fd: {}", fd)};
-  }
+  throwIfNotOpened(fd);
   OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
-  openedFileinfo.position = offset;
+  const size_t blocksNumber = openedFileinfo.inodeInfo->blocks.size();
+  if (offset <= blocksNumber * BLOCK_SIZE) {
+    openedFileinfo.position = offset;
+  }
+}
+
+void FileSystem::write(size_t fd, std::string_view content) {
+  throwIfNotOpened(fd);
+  OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
+
+  const size_t blocksNumber = openedFileinfo.inodeInfo->blocks.size();
+  const size_t writeSize = blocksNumber * BLOCK_SIZE - openedFileinfo.position;
+  if (writeSize < content.size()) {
+    const size_t blocksToAllocate =
+        std::ceil((double)content.size() / BLOCK_SIZE);
+    auto allocatedBlocks = storage->getBlocks(blocksToAllocate);
+    openedFileinfo.inodeInfo->blocks.insert(
+        openedFileinfo.inodeInfo->blocks.end(), allocatedBlocks.begin(),
+        allocatedBlocks.end());
+  }
+  const size_t blockn =
+      std::floor((double)openedFileinfo.position / BLOCK_SIZE);
+  const size_t blockshift = openedFileinfo.position - blockn * BLOCK_SIZE;
+  std::span<IStorage::byte_t> subspan{
+      openedFileinfo.inodeInfo->blocks[blockn].first.begin() + blockshift,
+      content.size()};
+  std::copy(content.begin(), content.end(), subspan.begin());
+}
+
+std::string FileSystem::read(size_t fd, size_t bytes) {
+  throwIfNotOpened(fd);
+
+  OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
+  const size_t blockn = std::ceil((double)openedFileinfo.position / BLOCK_SIZE);
+  const size_t blockshift = openedFileinfo.position - blockn * BLOCK_SIZE;
+  std::span<IStorage::byte_t> subspan{
+      openedFileinfo.inodeInfo->blocks[blockn].first.begin() + blockshift,
+      bytes};
+  return std::string{subspan.begin(), subspan.end()};
 }
