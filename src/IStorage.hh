@@ -12,6 +12,5 @@ class IStorage {
   virtual bool hasFreeBlocks(size_t blocks_number = 1) const = 0;
   virtual std::vector<block_t> getBlocks(size_t blocks_number = 1) = 0;
   virtual void release(std::vector<size_t> indices) = 0;
-  virtual void release(size_t index) = 0;
   virtual ~IStorage() {};
 };

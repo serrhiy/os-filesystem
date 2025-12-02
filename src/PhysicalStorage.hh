@@ -43,12 +43,10 @@ class PhysicalStorage final : public IStorage {
   }
 
   void release(std::vector<size_t> indices) override {
-    for (size_t index : indices) release(index);
-  }
-
-  void release(size_t index) override {
-    if (isBusy[index]) return;
-    freeBlocksNumber++;
-    isBusy[index] = false;
+    for (size_t index : indices) {
+      if (isBusy[index]) continue;
+      freeBlocksNumber++;
+      isBusy[index] = false;
+    }
   }
 };

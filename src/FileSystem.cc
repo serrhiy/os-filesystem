@@ -4,7 +4,6 @@
 #include <cmath>
 #include <format>
 #include <memory>
-#include <numeric>
 #include <ostream>
 #include <ranges>
 #include <stdexcept>
@@ -34,19 +33,6 @@ void FileSystem::throwIfNotOpened(size_t fd) {
   }
 }
 
-size_t FileSystem::getRealFileSize(const std::string& filename) const {
-  if (!lazyAllocation.contains(filename)) {
-    return directoryEntries.at(filename)->size;
-  }
-  static const auto binaryOperator = [](size_t total, auto range) {
-    return total + range.second - range.first;
-  };
-  const auto& ranges = lazyAllocation.at(filename);
-  const size_t zeros =
-      std::accumulate(ranges.begin(), ranges.end(), 0, binaryOperator);
-  return zeros + directoryEntries.at(filename)->size;
-}
-
 FileSystem::FileSystem(std::unique_ptr<IStorage> storage)
     : storage{std::move(storage)}, inodeCounter{0}, fdCounter{0} {}
 
@@ -64,8 +50,7 @@ void FileSystem::ls(std::ostream& outputStream) const {
   for (const auto &[filename, inodeInfo] : directoryEntries) {
     const char filetype = fileTypeToChar.at(inodeInfo->mode);
     outputStream << filename << '\t' << filetype << '\t';
-    outputStream << inodeInfo->nlink << '\t' << getRealFileSize(filename)
-                 << '\t';
+    outputStream << inodeInfo->nlink << '\t' << inodeInfo->size << '\t';
     outputStream << inodeInfo->inode << '\n';
   }
 }
@@ -76,7 +61,7 @@ void FileSystem::stat(const std::string& filename,
 
   auto inodeInfo = directoryEntries.at(filename);
   outputStream << "File: " << filename << '\n';
-  outputStream << "Size: " << getRealFileSize(filename) << '\t';
+  outputStream << "Size: " << inodeInfo->size << '\t';
   outputStream << "Blocks: " << inodeInfo->blocks.size() << '\t';
   outputStream << fileTypeToDescription.at(inodeInfo->mode) << '\n';
 
@@ -135,7 +120,7 @@ void FileSystem::seek(size_t fd, size_t offset) {
   throwIfNotOpened(fd);
   OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
   const size_t blocksNumber = openedFileinfo.inodeInfo->blocks.size();
-  if (offset < getRealFileSize(openedFileinfo.filename)) {
+  if (offset <= blocksNumber * BLOCK_SIZE) {
     openedFileinfo.position = offset;
   }
 }
@@ -179,11 +164,6 @@ std::string FileSystem::read(size_t fd, size_t bytes) {
 
   OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
 
-  if (openedFileinfo.position + bytes >=
-      getRealFileSize(openedFileinfo.filename)) {
-    throw std::out_of_range{"Out of file size"};
-  }
-
   size_t readed = 0;
   std::string result(bytes, char(0));
   while (readed < bytes) {
@@ -200,29 +180,4 @@ std::string FileSystem::read(size_t fd, size_t bytes) {
     openedFileinfo.position += bytesNumberToRead;
   }
   return result;
-}
-
-void FileSystem::truncate(size_t fd, size_t size) {
-  throwIfNotOpened(fd);
-
-  OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
-  const size_t realSize = getRealFileSize(openedFileinfo.filename);
-  const size_t blocksNumber = openedFileinfo.inodeInfo->blocks.size();
-
-  if (realSize == size) return;
-
-  if (realSize > size) {
-    if (realSize - size >= openedFileinfo.inodeInfo->size % BLOCK_SIZE) {
-      const size_t blocksNumberToRemove = std::ceil((double)size / BLOCK_SIZE);
-      for (size_t i = 0; i < blocksNumberToRemove; i++) {
-        storage->release(blocksNumber - i - 1);
-        openedFileinfo.inodeInfo->blocks.pop_back();
-      }
-    }
-    openedFileinfo.inodeInfo->size = size;
-    if (openedFileinfo.position >= size) {
-      openedFileinfo.position = size == 0 ? 0 : size - 1;
-    }
-    return;
-  }
 }
