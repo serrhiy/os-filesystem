@@ -10,19 +10,9 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <set>
 
 #include "FileInfo.hh"
 #include "constants.hh"
-
-using ranges_t = std::set<std::pair<size_t, size_t>>;
-
-ranges_t::iterator getAppropriateIterator(const ranges_t& ranges, size_t start, size_t end) {
-  static const auto callback = [start, end](const auto range) {
-    return range.first >= start && range.first < end;
-  };
-  return std::find_if(ranges.begin(), ranges.end(), callback);
-}
 
 void FileSystem::throwIfExists(const std::string& filename) const {
   if (directoryEntries.contains(filename)) {
@@ -45,6 +35,9 @@ void FileSystem::throwIfNotOpened(size_t fd) {
 }
 
 size_t FileSystem::getRealFileSize(const std::string& filename) const {
+  if (!lazyAllocation.contains(filename)) {
+    return directoryEntries.at(filename)->size;
+  }
   static const auto binaryOperator = [](size_t total, auto range) {
     return total + range.second - range.first;
   };
@@ -63,7 +56,6 @@ size_t FileSystem::create(const std::string& filename) {
   auto fileInfo = std::make_shared<INodeInfo>(
       INodeInfo{inodeCounter, FileType::REGULAR, 1, 0});
   directoryEntries[filename] = std::move(fileInfo);
-  lazyAllocation[filename] = {};
   return inodeCounter++;
 }
 
@@ -187,28 +179,14 @@ std::string FileSystem::read(size_t fd, size_t bytes) {
 
   OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
 
-  if (openedFileinfo.position + bytes >
+  if (openedFileinfo.position + bytes >=
       getRealFileSize(openedFileinfo.filename)) {
     throw std::out_of_range{"Out of file size"};
   }
 
   size_t readed = 0;
-  std::string result(bytes, '\0');
-
-  const auto ranges = lazyAllocation.at(openedFileinfo.filename);
-  auto range = getAppropriateIterator(ranges,
-      openedFileinfo.position, openedFileinfo.position + bytes);
-
+  std::string result(bytes, char(0));
   while (readed < bytes) {
-    if (range != ranges.end()) {
-      const auto [zeroStart, zeroEnd] = *range;
-      if (openedFileinfo.position >= zeroStart && openedFileinfo.position < zeroEnd) {
-        readed += zeroEnd - zeroStart;
-        openedFileinfo.position += zeroEnd - zeroStart;
-        range++;
-        continue;
-      }
-    }
     const size_t blockn =
         std::floor((double)openedFileinfo.position / BLOCK_SIZE);
     const size_t blockshift = openedFileinfo.position - blockn * BLOCK_SIZE;
@@ -247,6 +225,4 @@ void FileSystem::truncate(size_t fd, size_t size) {
     }
     return;
   }
-
-  lazyAllocation[openedFileinfo.filename].insert({ openedFileinfo.inodeInfo->size, size });
 }
