@@ -139,23 +139,45 @@ void FileSystem::write(size_t fd, std::string_view content) {
         openedFileinfo.inodeInfo->blocks.end(), allocatedBlocks.begin(),
         allocatedBlocks.end());
   }
-  const size_t blockn =
-      std::floor((double)openedFileinfo.position / BLOCK_SIZE);
-  const size_t blockshift = openedFileinfo.position - blockn * BLOCK_SIZE;
-  std::span<IStorage::byte_t> subspan{
-      openedFileinfo.inodeInfo->blocks[blockn].first.begin() + blockshift,
-      content.size()};
-  std::copy(content.begin(), content.end(), subspan.begin());
+
+  size_t writed = 0;
+  while (writed < content.size()) {
+    const size_t blockn =
+        std::floor((double)openedFileinfo.position / BLOCK_SIZE);
+    const size_t blockshift = openedFileinfo.position - blockn * BLOCK_SIZE;
+    const size_t bytesNumberToWrite =
+        std::min(BLOCK_SIZE - blockshift, content.size() - writed);
+    IStorage::block_t block = openedFileinfo.inodeInfo->blocks[blockn];
+    std::copy(content.begin() + writed,
+              content.begin() + writed + bytesNumberToWrite,
+              block.first.begin() + blockshift);
+    openedFileinfo.position += bytesNumberToWrite;
+    writed += bytesNumberToWrite;
+  }
+  if (openedFileinfo.position > openedFileinfo.inodeInfo->size) {
+    openedFileinfo.inodeInfo->size = openedFileinfo.position;
+  }
 }
 
 std::string FileSystem::read(size_t fd, size_t bytes) {
   throwIfNotOpened(fd);
 
   OpenedFileInfo& openedFileinfo = openedFiles.at(fd);
-  const size_t blockn = std::ceil((double)openedFileinfo.position / BLOCK_SIZE);
-  const size_t blockshift = openedFileinfo.position - blockn * BLOCK_SIZE;
-  std::span<IStorage::byte_t> subspan{
-      openedFileinfo.inodeInfo->blocks[blockn].first.begin() + blockshift,
-      bytes};
-  return std::string{subspan.begin(), subspan.end()};
+
+  size_t readed = 0;
+  std::string result(bytes, char(0));
+  while (readed < bytes) {
+    const size_t blockn =
+        std::floor((double)openedFileinfo.position / BLOCK_SIZE);
+    const size_t blockshift = openedFileinfo.position - blockn * BLOCK_SIZE;
+    const size_t bytesNumberToRead =
+        std::min(BLOCK_SIZE - blockshift, bytes - readed);
+    auto blockBegin = openedFileinfo.inodeInfo->blocks[blockn].first.begin();
+    std::copy(blockBegin + blockshift,
+              blockBegin + blockshift + bytesNumberToRead,
+              result.begin() + readed);
+    readed += bytesNumberToRead;
+    openedFileinfo.position += bytesNumberToRead;
+  }
+  return result;
 }
