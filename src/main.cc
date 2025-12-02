@@ -17,6 +17,7 @@ int main(const int argc, const char* argv[]) {
     filesystem.seek(fd, 0);
     const std::string result = filesystem.read(fd, 12);
     std::print("Result: {}\n", result);
+    filesystem.stat("file.txt", std::cout);
     filesystem.close(fd);
   } catch (const std::exception& exception) {
     std::print(std::cerr, "Error occured: {}\n", exception.what());
