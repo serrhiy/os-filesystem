@@ -13,11 +13,9 @@ int main(const int argc, const char* argv[]) {
     FileSystem filesystem{std::make_unique<Storage>()};
     filesystem.create("file.txt");
     const size_t fd = filesystem.open("file.txt");
-    filesystem.write(fd, "Hello world!");
-    filesystem.truncate(fd, 5);
-    filesystem.seek(fd, 0);
-    const std::string result = filesystem.read(fd, 5);
-    std::print("Result: {}\n", result);
+    filesystem.truncate(fd, 15);
+    const std::string result = filesystem.read(fd, 15);
+    std::print("|Read, size: {}, content: {}|\n", result.size(), result);
     filesystem.stat("file.txt", std::cout);
     filesystem.close(fd);
   } catch (const std::exception& exception) {
