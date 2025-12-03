@@ -33,6 +33,15 @@ void FileSystem::throwIfNotOpened(size_t fd) {
   }
 }
 
+size_t FileSystem::getRealBlocksNumber(const std::string& filename) const {
+  auto inode = directoryEntries.at(filename);
+  size_t size = 0;
+  for (const auto& block: inode->blocks) {
+    size += !block.first.empty();
+  }
+  return size;
+}
+
 FileSystem::FileSystem(std::unique_ptr<IStorage> storage)
     : storage{std::move(storage)}, inodeCounter{0}, fdCounter{0} {}
 
@@ -62,7 +71,7 @@ void FileSystem::stat(const std::string& filename,
   auto inodeInfo = directoryEntries.at(filename);
   outputStream << "File: " << filename << '\n';
   outputStream << "Size: " << inodeInfo->size << '\t';
-  outputStream << "Blocks: " << inodeInfo->blocks.size() << '\t';
+  outputStream << "Blocks: " << getRealBlocksNumber(filename) << '\t';
   outputStream << fileTypeToDescription.at(inodeInfo->mode) << '\n';
 
   outputStream << "Inode: " << inodeInfo->inode << '\t';
@@ -172,12 +181,35 @@ std::string FileSystem::read(size_t fd, size_t bytes) {
     const size_t blockshift = openedFileinfo.position - blockn * BLOCK_SIZE;
     const size_t bytesNumberToRead =
         std::min(BLOCK_SIZE - blockshift, bytes - readed);
-    auto blockBegin = openedFileinfo.inodeInfo->blocks[blockn].first.begin();
-    std::copy(blockBegin + blockshift,
-              blockBegin + blockshift + bytesNumberToRead,
-              result.begin() + readed);
+    if (!openedFileinfo.inodeInfo->blocks[blockn].first.empty()) {
+      auto blockBegin = openedFileinfo.inodeInfo->blocks[blockn].first.begin();
+      std::copy(blockBegin + blockshift,
+                blockBegin + blockshift + bytesNumberToRead,
+                result.begin() + readed); 
+    }
     readed += bytesNumberToRead;
     openedFileinfo.position += bytesNumberToRead;
   }
   return result;
+}
+
+void FileSystem::truncate(const std::string& filename, size_t newSize) {
+  throwIfNotExists(filename);
+
+  auto fileInfo = directoryEntries.at(filename);
+  const size_t neededBlocks = std::ceil((double)newSize / BLOCK_SIZE);
+
+  // If new size is bigger, just increase it, do not allocate memory
+  if (newSize >= fileInfo->size) {
+    fileInfo->size = newSize;
+    fileInfo->blocks.resize(neededBlocks);
+    return;
+  }
+
+  const size_t blocksNumber = fileInfo->blocks.size();
+  for (size_t index = neededBlocks; index < blocksNumber; index++) {
+    storage->release(index);
+    fileInfo->blocks.pop_back();
+  }
+  fileInfo->size = newSize;
 }

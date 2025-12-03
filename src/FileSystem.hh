@@ -22,6 +22,8 @@ class FileSystem {
   void throwIfNotExists(const std::string& filename) const;
   void throwIfNotOpened(size_t fd);
 
+  size_t getRealBlocksNumber(const std::string& filename) const;
+
  public:
   FileSystem() = delete;
   FileSystem(std::unique_ptr<IStorage> storage);
@@ -37,4 +39,6 @@ class FileSystem {
   void seek(size_t fd, size_t offset);
   void write(size_t fd, std::string_view content);
   std::string read(size_t fd, size_t bytes);
+
+  void truncate(const std::string& filename, size_t newSize);
 };
